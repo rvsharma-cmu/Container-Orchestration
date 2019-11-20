@@ -16,8 +16,8 @@ f.close()
 response = requests.post(url, json=input_file_data)
 
 if(response.status_code == 200):
-    return_data = response.json()
-    # print("Success: " + return_data["instance"])
-# else:
-#     print("Failure: Have better error checking than this sample pls")
+    # return_data = response.json()
+    print("Success: ")
+else:
+    print("Failure: Failed to upload config file")
 exit(0)
