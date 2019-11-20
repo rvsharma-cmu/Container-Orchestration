@@ -1,3 +1,23 @@
 #!/usr/bin/python3
+import requests, json, os, sys
 
+HOSTNAME = "localhost"
+PORT = "8080"
+
+url = "http://" + HOSTNAME + ":" + PORT + "/config"
+
+input_config_data = {
+    "input_file": sys.argv[1]
+}
+
+f = open(input_config_data["input_file"], "r")
+input_file_data = json.loads(f.read())
+f.close()
+response = requests.post(url, json=input_file_data)
+
+if(response.status_code == 200):
+    return_data = response.json()
+    # print("Success: " + return_data["instance"])
+# else:
+#     print("Failure: Have better error checking than this sample pls")
 exit(0)
