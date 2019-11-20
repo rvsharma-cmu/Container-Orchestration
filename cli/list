@@ -1,4 +1,19 @@
 #!/usr/bin/python3
+import requests, json, os, sys
 
-print("fake instance name")
-print("another fake instance name")
+HOSTNAME = "localhost"
+PORT = "8080"
+
+url = "http://" + HOSTNAME + ":" + PORT + "/list"
+
+response = requests.get(url)
+if(response.status_code == 200):
+    return_data = response.json()
+    instances_dict_list = return_data["instances"]
+    for each_dict in instances_dict_list:
+        print(each_dict["instance"]+ ":" + each_dict["name"] + "\n")
+else:
+    # Will ideally never come to this condtition since no input is given
+    print("Failure: list failed")
+# print("fake instance name")
+# print("another fake instance name")
