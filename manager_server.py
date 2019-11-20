@@ -105,4 +105,5 @@ def del_all_inst():
 
 
 if __name__ == '__main__':
-    manager_server.run(host="localhost", port=int(sys.argv[2]))
+    # manager_server.run(host="localhost", port=int(sys.argv[2]))
+    manager_server.run(host="localhost", port=8080
