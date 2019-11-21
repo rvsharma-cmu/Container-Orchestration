@@ -30,7 +30,6 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(json, expected)
 
         # launch first
-        pdb.set_trace()
         first = MySupport.get_dict("first_launch")
         response = requests.post(url_launch, json=first)
         self.assertEqual(response.status_code, 200)
@@ -95,7 +94,7 @@ class LaunchTests(unittest.TestCase):
         self.assertIsNotNone(response.content)
         json = response.json()
         self.assertEqual(json, expected)
-
+        pdb.set_trace()
         # test destroy all
         url_destroy =  MySupport.url(self.HOSTNAME, self.PORT, "/destroyall")
         response = requests.delete(url_destroy)

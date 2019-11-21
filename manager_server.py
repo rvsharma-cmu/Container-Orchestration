@@ -9,6 +9,7 @@ from collections import OrderedDict
 import os
 import os.path as ospath
 import pdb
+import copy
 
 manager_server = flask.Flask(__name__)
 manager_server.config["DEBUG"] = True
@@ -19,7 +20,6 @@ manager_server.config["DEBUG"] = True
 """
 config_infor_dict = OrderedDict()
 
-instances_list = []
 
 """ Current project working directory for hierarchically 
     declaring paths and folders for files and basefs 
@@ -34,6 +34,17 @@ cont_inst_dir = ospath.join(proj_work_dir, 'container')
 """Dictionary of container processes 
 """
 container_dict = {}
+
+"""
+    Config instance dictionary 
+"""
+config_instance_dict = OrderedDict()
+
+"""
+    Instances list of dictionaries. Updated while 
+    launching and destroying container instances 
+"""
+instances_list_dict = {}
 
 
 @manager_server.route('/config', methods=['POST'])
@@ -100,7 +111,7 @@ def start_container(instance_base_image_dir, config_information):
     startup_env = config_information['startup_env']
     if startup_env[-1] != ';':
         startup_env = startup_env + ';'
-    os.system('unshare -p -f --mount-proc={} chroot {} /bin/bash -c "export {} {}"'.format(ospath.join(instance_base_image_dir, 'proc'),
+    os.system('sudo unshare -p -f --mount-proc={} chroot {} /bin/bash -c "export {} {}"'.format(ospath.join(instance_base_image_dir, 'proc'),
                                                                                            instance_base_image_dir, startup_env,
                                                                                            config_information[
                                                                                                'startup_script']))
@@ -117,10 +128,9 @@ def launch_inst():
     minor_version = content["minor"]
     if config_name is None or major_version is None or minor_version is None:
         return Response(status=409)
-    global instances_list
-    pdb.set_trace()
-    instance_name = "instance_" + config_name
-    instances_list.append(instance_name)
+    global instances_list_dict
+    
+    instance_name = "instance_" + config_name + "_" + major_version + "_" + minor_version
     if not ospath.exists(cont_inst_dir):
         os.makedirs(cont_inst_dir, mode=0o777)
     inst_dir = ospath.join(cont_inst_dir, instance_name)
@@ -129,13 +139,13 @@ def launch_inst():
     
     os.system("tar -zxf base_images/basefs.tar.gz -C " + inst_dir + "")
     instance_base_image_dir = ospath.join(inst_dir, 'basefs')
-    
-    config_information = config_infor_dict[config_name+"-"+major_version+"-"+minor_version+".cfg"]
+    config_file_name = config_name+"-"+major_version+"-"+minor_version+".cfg"
+    config_information = config_infor_dict[config_file_name]
     
     for each_mount_point in config_information['mounts']:
         do_mount(instance_base_image_dir, each_mount_point)
-
-    os.system('mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
+    # pdb.set_trace()
+    os.system('sudo mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
     container_process = Process(target=start_container, args=(instance_base_image_dir, config_information))
     container_dict[instance_name] = container_process
     container_process.start()
@@ -143,17 +153,23 @@ def launch_inst():
     os.setpgid(container_process.pid, container_process.pid)
 
     for config_file in config_infor_dict.keys():
-        if config_file == config_name:
+        if config_file == config_file_name:
             # Code for launching instance of a specific container given
             # config_name, major_version and minor_version to be written here
 
             instance_name = "instance_" + config_name
-            instances_list.append(instance_name)
             output_dict = {}
+
             output_dict["instance"] = instance_name
             output_dict["name"] = config_name
             output_dict["major"] = major_version
             output_dict["minor"] = minor_version
+            if len(instances_list_dict) == 0:
+                instances_list_dict['instances'] = [output_dict]
+            else:
+                inst_list = instances_list_dict['instances']
+                inst_list.append(output_dict)
+                instances_list_dict['instances'] = inst_list
             response = jsonify(output_dict)
             response.status_code = 200
             return response 
@@ -162,62 +178,72 @@ def launch_inst():
     
 @manager_server.route('/list', methods=['GET'])
 def get_inst_list():
-    output_dict = {"instances": instances_list}
-    response = jsonify(output_dict)
+    if len(instances_list_dict) == 0:
+        instances_list_dict['instances'] = []
+    response = jsonify(instances_list_dict)
     response.status_code = 200
     return response
 
 
-def teardown_container(one_instance):
-    image_dir = ospath.join(cont_inst_dir, one_instance, 'basefs')
-    instance_info = instances_list.pop(one_instance)
-    container_process = container_dict.pop(one_instance)
-    # kill the whole group of container process
+def destroy_container(one_instance):
+    
+    instance_directory = one_instance['instance']+"_"+one_instance['major']+"_"+one_instance['minor']
+    image_dir = ospath.join(cont_inst_dir, instance_directory, 'basefs')
+    container_process = container_dict[instance_directory]
+    del container_dict[instance_directory]
+
+    global instances_list_dict
+    list_inst = instances_list_dict['instances']
+    list_inst.remove(one_instance)
+    instances_list_dict['instances'] = list_inst
+
     os.killpg(container_process.pid, signal.SIGKILL)
 
-    with open(ospath.join(proj_work_dir, '{}-{}-{}.cfg'.format(instance_info['name'],
-                                                         instance_info['major'],
-                                                         instance_info['minor']))) as fp:
-        config_obj = json.load(fp)
-    # umount all mounted files
-    mount_paths = [mount_config.split(' ')[1] for mount_config in config_obj['mounts']]
+    config_name = one_instance['name']
+    major_version = one_instance['major']
+    minor_version = one_instance['minor']
+    config_file_name = config_name+"-"+major_version+"-"+minor_version+".cfg"
+    config_information = config_infor_dict[config_file_name]
+    mount_paths = [mount_config.split(' ')[1] for mount_config in config_information['mounts']]
     mount_paths.sort()
+    # umount in reverse order of mounting 
     mount_paths.reverse()
     for mount_path in mount_paths:
         if mount_path[0] == '/':
             mount_path = mount_path[1:]
         mount_path = ospath.join(image_dir, mount_path)
-        os.system('umount -l {}'.format(mount_path))
-    # umount proc
-    os.system('chroot {} /bin/bash -c "umount proc"'.format(image_dir))
-    # remove container directory
-    os.system('rm -rf {}'.format(ospath.join(cont_inst_dir, one_instance)))
+        os.system('sudo umount -l {}'.format(mount_path))
+    os.system('sudo chroot {} /bin/bash -c "umount proc"'.format(image_dir))
+    os.system('sudo rm -rf {}'.format(ospath.join(cont_inst_dir, instance_directory)))
 
 
 @manager_server.route('/destroy/<path:text>', methods=['DELETE'])
 def del_inst(text):
-    global instances_list
+    # pdb.set_trace()
+    deleted = False
     if text is None:
         return Response(status=409)
-    for one_instance in instances_list:
-        if one_instance == text:
-            teardown_container(one_instance)
-
-            instances_list.remove(one_instance)
-            return Response(status=200)
-    return Response(status=404)
+    for one_instance in instances_list_dict['instances']:
+        if one_instance['instance'] == text:
+            destroy_container(one_instance)
+            deleted = True
+    #not found
+    if deleted:
+        return Response(status=200)
+    else:
+        return Response(status=404)
 
 
 @manager_server.route('/destroyall', methods=['DELETE'])
 def del_all_inst():
-    global instances_list
-
-    instances_list.clear()
-    for each_inst in instances_list:
-        teardown_container(each_inst)
+    global instances_list_dict
+    temp_instances_list_dict = copy.copy(instances_list_dict)
+    pdb.set_trace()
+    for each_inst in instances_list_dict['instances']:
+        destroy_container(each_inst)
+    
     return Response(status=200)
 
 
 if __name__ == '__main__':
-    # manager_server.run(host="localhost", port=int(sys.argv[2]))
     manager_server.run(host="localhost", port=8080)
