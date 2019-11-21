@@ -201,8 +201,9 @@ def del_inst(text):
 def del_all_inst():
     global instances_list
 
-    
     instances_list.clear()
+    for each_inst in instances_list:
+        teardown_container(each_inst)
     return Response(status=200)
 
 
