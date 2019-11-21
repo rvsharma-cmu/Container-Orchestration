@@ -5,3 +5,10 @@ base_images/
 containers/
 *.tar.gz
 __MACOSX
+mountables/potato/
+mountables/cabbage/
+mountables/tomato/
+container/
+.vscode/
+grading/rest/__pycache__
+*.cfg

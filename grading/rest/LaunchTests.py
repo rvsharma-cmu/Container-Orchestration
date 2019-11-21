@@ -1,5 +1,6 @@
 import requests, unittest, json
 from MySupport import MySupport
+import pdb
 
 class LaunchTests(unittest.TestCase):
     HOSTNAME = "host"
@@ -29,6 +30,7 @@ class LaunchTests(unittest.TestCase):
         self.assertEqual(json, expected)
 
         # launch first
+        pdb.set_trace()
         first = MySupport.get_dict("first_launch")
         response = requests.post(url_launch, json=first)
         self.assertEqual(response.status_code, 200)

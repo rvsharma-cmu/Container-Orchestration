@@ -5,8 +5,10 @@ from multiprocessing import Process
 import flask
 import sys
 from flask import request, jsonify, Response
+from collections import OrderedDict
 import os
 import os.path as ospath
+import pdb
 
 manager_server = flask.Flask(__name__)
 manager_server.config["DEBUG"] = True
@@ -15,7 +17,7 @@ manager_server.config["DEBUG"] = True
     config information file name on disk 
     caching on memory for faster access
 """
-config_infor_dict = {}
+config_infor_dict = OrderedDict()
 
 instances_list = []
 
@@ -36,9 +38,15 @@ container_dict = {}
 
 @manager_server.route('/config', methods=['POST'])
 def create_config():
+
     content = request.get_json()
     if content is None:
         return Response(status=409)
+
+    for each_attr in ["name", "major", "minor"]:
+        if each_attr not in content:
+            return Response(status=409)
+
     filename = content["name"]
     major_version = content["major"]
     minor_version = content["minor"]
@@ -47,9 +55,11 @@ def create_config():
         return Response(status=409)
     global config_infor_dict
     config_file_name = filename + "-" + major_version + "-" + minor_version + ".cfg"
+    if config_file_name in config_infor_dict.keys():
+        return Response(status=409)
     config_infor_dict[config_file_name] = content
     f = open(config_file_name, "w")
-    f.write(content)
+    f.write(json.dumps(content))
     f.close()
     return Response(status=200)
 
@@ -108,13 +118,14 @@ def launch_inst():
     if config_name is None or major_version is None or minor_version is None:
         return Response(status=409)
     global instances_list
-
+    pdb.set_trace()
     instance_name = "instance_" + config_name
     instances_list.append(instance_name)
-
+    if not ospath.exists(cont_inst_dir):
+        os.makedirs(cont_inst_dir, mode=0o777)
     inst_dir = ospath.join(cont_inst_dir, instance_name)
     if not ospath.exists(inst_dir):
-        os.makedirs(inst_dir, 777)
+        os.makedirs(inst_dir, mode=0o777)
     
     os.system("tar -zxf base_images/basefs.tar.gz -C " + inst_dir + "")
     instance_base_image_dir = ospath.join(inst_dir, 'basefs')

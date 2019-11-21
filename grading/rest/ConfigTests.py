@@ -1,5 +1,6 @@
 import requests, unittest, json
 from MySupport import MySupport
+import pdb
 
 class ConfigTests(unittest.TestCase):
     HOSTNAME = "host"
@@ -65,7 +66,6 @@ class ConfigTests(unittest.TestCase):
         response = requests.get(url_info)
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(response.content)
-
 
         expected["files"].append("sensiblename-1-01.cfg")
         expected["files"].append("terriblename-5-23.cfg")
