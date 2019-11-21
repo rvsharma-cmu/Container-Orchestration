@@ -1,3 +1,5 @@
+import json
+import signal
 from multiprocessing import Process
 
 import flask
@@ -30,6 +32,7 @@ cont_inst_dir = ospath.join(proj_work_dir, 'container')
 """Dictionary of container processes 
 """
 container_dict = {}
+
 
 @manager_server.route('/config', methods=['POST'])
 def create_config():
@@ -154,6 +157,32 @@ def get_inst_list():
     return response
 
 
+def teardown_container(one_instance):
+    image_dir = ospath.join(cont_inst_dir, one_instance, 'basefs')
+    instance_info = instances_list.pop(one_instance)
+    container_process = container_dict.pop(one_instance)
+    # kill the whole group of container process
+    os.killpg(container_process.pid, signal.SIGKILL)
+
+    with open(ospath.join(proj_work_dir, '{}-{}-{}.cfg'.format(instance_info['name'],
+                                                         instance_info['major'],
+                                                         instance_info['minor']))) as fp:
+        config_obj = json.load(fp)
+    # umount all mounted files
+    mount_paths = [mount_config.split(' ')[1] for mount_config in config_obj['mounts']]
+    mount_paths.sort()
+    mount_paths.reverse()
+    for mount_path in mount_paths:
+        if mount_path[0] == '/':
+            mount_path = mount_path[1:]
+        mount_path = ospath.join(image_dir, mount_path)
+        os.system('umount -l {}'.format(mount_path))
+    # umount proc
+    os.system('chroot {} /bin/bash -c "umount proc"'.format(image_dir))
+    # remove container directory
+    os.system('rm -rf {}'.format(ospath.join(cont_inst_dir, one_instance)))
+
+
 @manager_server.route('/destroy/<path:text>', methods=['DELETE'])
 def del_inst(text):
     global instances_list
@@ -161,7 +190,7 @@ def del_inst(text):
         return Response(status=409)
     for one_instance in instances_list:
         if one_instance == text:
-            # Code to stop instance to be written here
+            teardown_container(one_instance)
 
             instances_list.remove(one_instance)
             return Response(status=200)

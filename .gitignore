@@ -1,3 +1,6 @@
 .DS_Store
 .idea/
 .iml
+base_images/
+containers/
+*.tar.gz
