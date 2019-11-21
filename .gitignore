@@ -4,3 +4,4 @@
 base_images/
 containers/
 *.tar.gz
+__MACOSX
