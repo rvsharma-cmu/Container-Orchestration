@@ -26,7 +26,6 @@ PROCNAME = "tiny.sh"
 
 server_awake = False
 
-
 """ 
     Current project working directory for hierarchically 
     declaring paths and folders for files and basefs 
@@ -42,7 +41,7 @@ cont_inst_dir = ospath.join(proj_work_dir, 'container')
 """
     Dictionary of container processes 
 """
-container_dict = {}
+process_dictionary = {}
 
 """
     Config instance dictionary 
@@ -100,34 +99,45 @@ def get_config_info():
 
 def do_mount(baseimg_dir, mount_point):
     mt_point_args = mount_point.split(" ")
-    filename = mt_point_args[0]
-    file_folder = filename.split(".")[0]
-    folder = mt_point_args[1]
-    if folder[0] == '/':
-        folder = folder[1:]
+    files = mt_point_args[0]
+    folder_args = files.split(".")
+    folder_create = folder_args[0]
+    new_folder_name = mt_point_args[1]
+    new_folder_name = truncate_path_name(new_folder_name)
     permission = mt_point_args[2]
     mount_dir = ospath.join(proj_work_dir, "mountables")
-    filepath = ospath.join(mount_dir, filename)
-    file_folder = ospath.join(mount_dir, file_folder)
-    folder_path = ospath.join(baseimg_dir, folder)
-    if not ospath.exists(folder_path):
-        os.system('sudo mkdir {}'.format(folder_path))
-    if not ospath.exists(file_folder):
-        os.system('tar -xf {} -C {}'.format(filepath, mount_dir))
+    path = ospath.join(mount_dir, files)
+    folder_create = ospath.join(mount_dir, folder_create)
+    base_image_path = ospath.join(baseimg_dir, new_folder_name)
+    create_image_directory(base_image_path, folder_create, mount_dir, path)
+    execute_mount_point(base_image_path, folder_create, permission)
+
+
+def execute_mount_point(base_image_path, folder_create, permission):
     if permission == "READ":
-        os.system('sudo mount --bind -o ro {} {}'.format(file_folder, folder_path))
+        os.system('sudo mount --bind -o ro {} {}'.format(folder_create, base_image_path))
     else:
-        os.system('sudo mount --bind -o rw {} {}'.format(file_folder, folder_path))
+        os.system('sudo mount --bind -o rw {} {}'.format(folder_create, base_image_path))
 
 
-def start_container(instance_base_image_dir, config_information):
-    startup_env = config_information['startup_env']
-    if startup_env[-1] != ';':
-        startup_env = startup_env + ';'
-    os.system('sudo unshare -p -f --mount-proc={} chroot {} /bin/bash -c "export {} {}"'.format(ospath.join(instance_base_image_dir, 'proc'),
-                                                                                           instance_base_image_dir, startup_env,
-                                                                                           config_information[
-                                                                                               'startup_script']))
+def create_image_directory(base_image_path, folder_create, mount_dir, path):
+    if not ospath.exists(base_image_path):
+        os.system('sudo mkdir {}'.format(base_image_path))
+    if not ospath.exists(folder_create):
+        os.system('tar -xf {} -C {}'.format(path, mount_dir))
+
+
+def truncate_path_name(folder):
+    if folder[0] == '/':
+        folder = folder[1:]
+    return folder
+
+
+def launch_container(instance_base_image_dir, config_information):
+    startup_env = config_information['startup_env'] + ';'
+    os.system('sudo unshare -p -f --mount-proc={} chroot {} /bin/bash -c "export {} {}"'
+              .format(ospath.join(instance_base_image_dir, 'proc'), instance_base_image_dir,
+                      startup_env, config_information['startup_script']))
 
 
 @manager_server.route('/launch', methods=['POST'])
@@ -135,45 +145,36 @@ def launch_inst():
     content = request.get_json()
     if content is None:
         return Response(status=409)
-    
+
     config_name = content["name"]
     major_version = content["major"]
     minor_version = content["minor"]
     if config_name is None or major_version is None or minor_version is None:
         return Response(status=409)
     global instances_list_dict
-    
+
     instance_name = "instance_" + config_name + "_" + major_version + "_" + minor_version
     if not ospath.exists(cont_inst_dir):
         os.makedirs(cont_inst_dir, mode=0o777)
     inst_dir = ospath.join(cont_inst_dir, instance_name)
     if not ospath.exists(inst_dir):
         os.makedirs(inst_dir, mode=0o777)
-    
+
     os.system("tar -zxf base_images/basefs.tar.gz -C " + inst_dir + "")
     instance_base_image_dir = ospath.join(inst_dir, 'basefs')
-    config_file_name = config_name+"-"+major_version+"-"+minor_version+".cfg"
+    config_file_name = config_name + "-" + major_version + "-" + minor_version + ".cfg"
     config_information = config_infor_dict[config_file_name]
-    
-    for each_mount_point in config_information['mounts']:
-        do_mount(instance_base_image_dir, each_mount_point)
-    os.system('sudo mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
-    container_process = Process(target=start_container, args=(instance_base_image_dir, config_information))
-    container_dict[instance_name] = container_process
-    container_process.start()
-    os.setpgid(container_process.pid, container_process.pid)
+
+    initialize_container(config_information, instance_base_image_dir, instance_name)
 
     for config_file in config_infor_dict.keys():
         if config_file == config_file_name:
             # Code for launching instance of a specific container given
             # config_name, major_version and minor_version to be written here
             instance_name = "instance_" + config_name
-            output_dict = {}
+            output_dict = {"instance": instance_name, "name": config_name, "major": major_version,
+                           "minor": minor_version}
 
-            output_dict["instance"] = instance_name
-            output_dict["name"] = config_name
-            output_dict["major"] = major_version
-            output_dict["minor"] = minor_version
             if len(instances_list_dict) == 0:
                 instances_list_dict['instances'] = [output_dict]
             else:
@@ -183,10 +184,20 @@ def launch_inst():
             response = jsonify(output_dict)
             response.status_code = 200
             time.sleep(3)
-            return response 
+            return response
     return Response(status=404)
 
-    
+
+def initialize_container(config_information, instance_base_image_dir, instance_name):
+    for each_mount_point in config_information['mounts']:
+        do_mount(instance_base_image_dir, each_mount_point)
+    os.system('sudo mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
+    process = Process(target=launch_container, args=(instance_base_image_dir, config_information))
+    process_dictionary[instance_name] = process
+    process.start()
+    os.setpgid(process.pid, process.pid)
+
+
 @manager_server.route('/list', methods=['GET'])
 def get_inst_list():
     if len(instances_list_dict) == 0:
@@ -197,31 +208,30 @@ def get_inst_list():
 
 
 def destroy_container(one_instance):
-    
-    instance_directory = one_instance['instance']+"_"+one_instance['major']+"_"+one_instance['minor']
+    instance_directory = one_instance['instance'] + "_" + one_instance['major'] + "_" + one_instance['minor']
     image_dir = ospath.join(cont_inst_dir, instance_directory, 'basefs')
-    container_process = container_dict[instance_directory]
-    del container_dict[instance_directory]
+    process = process_dictionary[instance_directory]
+    del process_dictionary[instance_directory]
 
     global instances_list_dict
     list_inst = instances_list_dict['instances']
     list_inst.remove(one_instance)
     instances_list_dict['instances'] = list_inst
 
-    os.killpg(container_process.pid, signal.SIGKILL)
+    os.killpg(process.pid, signal.SIGKILL)
 
     config_name = one_instance['name']
     major_version = one_instance['major']
     minor_version = one_instance['minor']
-    config_file_name = config_name+"-"+major_version+"-"+minor_version+".cfg"
+    config_file_name = config_name + "-" + major_version + "-" + minor_version + ".cfg"
     config_information = config_infor_dict[config_file_name]
-    mount_paths = [mount_config.split(' ')[1] for mount_config in config_information['mounts']]
-    mount_paths.sort()
+    mount_paths = []
+    for mount_config in config_information['mounts']:
+        mount_paths.append(mount_config.split(" ")[1])
     # umount in reverse order of mounting 
-    mount_paths.reverse()
+    (mount_paths.sort()).reverse()
     for mount_path in mount_paths:
-        if mount_path[0] == '/':
-            mount_path = mount_path[1:]
+        mount_path = truncate_path_name(mount_path)
         mount_path = ospath.join(image_dir, mount_path)
         os.system('sudo umount -l {}'.format(mount_path))
     os.system('sudo chroot {} /bin/bash -c "umount proc"'.format(image_dir))
@@ -237,13 +247,13 @@ def del_inst(text):
         if one_instance['instance'] == text:
             destroy_container(one_instance)
             deleted = True
-    #not found
+    # not found
     if deleted:
         return Response(status=200)
     else:
         return Response(status=404)
 
-    
+
 def delete_all_dangling_proc():
     for proc in psutil.process_iter():
         if proc.name() == PROCNAME:
@@ -265,5 +275,4 @@ def del_all_inst():
 
 
 if __name__ == '__main__':
-    
     manager_server.run(host="localhost", port=8080)

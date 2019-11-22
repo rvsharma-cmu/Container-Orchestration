@@ -29,21 +29,28 @@ clean:
 
 cli_tests: manager
 	sleep 1
+	# running cli_tests now
 	./grading/cli_tests/test_1_upload.sh
 	./grading/cli_tests/test_2_cfginfo.sh
 	./grading/cli_tests/test_3_launch.sh
 	./grading/cli_tests/test_4_list.sh
 	./grading/cli_tests/test_5_destroyall.sh
+	# removing all files
 	rm -rf *.cfg
 	rm -rf *.html
 	rm -rf *.html.*
+	# killing manager process
 	./kill_manager.sh
 
 api_tests: manager
 	sleep 1
 	python3 grading/rest/grading.py
+	# test grading.py passed
 	./cli/destroyall
+	# all instances destroyed, clean up now
+	# using make clean
 	sudo make clean
+	# api_tests finished
 
 	
 	
