@@ -10,6 +10,8 @@ import os
 import os.path as ospath
 import pdb
 import copy
+import time
+import psutil
 
 manager_server = flask.Flask(__name__)
 manager_server.config["DEBUG"] = True
@@ -20,18 +22,23 @@ manager_server.config["DEBUG"] = True
 """
 config_infor_dict = OrderedDict()
 
+PROCNAME = "tiny.sh"
 
-""" Current project working directory for hierarchically 
+
+""" 
+    Current project working directory for hierarchically 
     declaring paths and folders for files and basefs 
 """
 proj_work_dir = ospath.dirname(ospath.realpath(__file__))
 
-""" Directory for container instances that mounts containers and 
+""" 
+    Directory for container instances that mounts containers and 
     its instances 
 """
 cont_inst_dir = ospath.join(proj_work_dir, 'container')
 
-"""Dictionary of container processes 
+"""
+    Dictionary of container processes 
 """
 container_dict = {}
 
@@ -144,7 +151,7 @@ def launch_inst():
     
     for each_mount_point in config_information['mounts']:
         do_mount(instance_base_image_dir, each_mount_point)
-    # pdb.set_trace()
+    pdb.set_trace()
     os.system('sudo mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
     container_process = Process(target=start_container, args=(instance_base_image_dir, config_information))
     container_dict[instance_name] = container_process
@@ -172,6 +179,7 @@ def launch_inst():
                 instances_list_dict['instances'] = inst_list
             response = jsonify(output_dict)
             response.status_code = 200
+            time.sleep(10)
             return response 
     return Response(status=404)
 
@@ -233,17 +241,25 @@ def del_inst(text):
     else:
         return Response(status=404)
 
+    
+def delete_all_dangling_proc():
+    for proc in psutil.process_iter():
+        if proc.name() == PROCNAME:
+            process_id = proc.pid
+            os.system('sudo kill -9 {}'.format(process_id))
+
 
 @manager_server.route('/destroyall', methods=['DELETE'])
 def del_all_inst():
     global instances_list_dict
-    temp_instances_list_dict = copy.copy(instances_list_dict)
-    pdb.set_trace()
-    for each_inst in instances_list_dict['instances']:
+    temp_instances_list_dict = copy.copy(list(instances_list_dict['instances']))
+    for each_inst in temp_instances_list_dict:
         destroy_container(each_inst)
-    
+    delete_all_dangling_proc()
+    pdb.set_trace()
     return Response(status=200)
 
 
 if __name__ == '__main__':
+    
     manager_server.run(host="localhost", port=8080)

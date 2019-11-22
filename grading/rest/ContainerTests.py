@@ -1,5 +1,6 @@
 import requests, unittest, json
 from MySupport import MySupport
+import pdb
 
 class ContainerTests(unittest.TestCase):
     HOSTNAME = "host"
@@ -12,7 +13,7 @@ class ContainerTests(unittest.TestCase):
 
     def test_main(self):
         url =  MySupport.url(self.HOSTNAME, self.PORT, "/launch")
-
+        pdb.set_trace()
         # launch first
         first_config = MySupport.get_dict("first_config")
         first_launch = MySupport.get_dict("first_launch")
