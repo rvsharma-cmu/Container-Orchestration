@@ -11,7 +11,7 @@ if(response.status_code == 200):
     return_data = response.json()
     config_list = return_data["files"]
     for each_file in config_list:
-        print(each_file+"\n")
+        print(each_file)
 else:
     # Will ideally never come to this condtition since no input is given
     print("Failure: cfginfo failed")

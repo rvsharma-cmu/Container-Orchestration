@@ -24,6 +24,8 @@ config_infor_dict = OrderedDict()
 
 PROCNAME = "tiny.sh"
 
+server_awake = False
+
 
 """ 
     Current project working directory for hierarchically 
@@ -56,7 +58,9 @@ instances_list_dict = {}
 
 @manager_server.route('/config', methods=['POST'])
 def create_config():
-
+    if not server_awake:
+        time.sleep(3)
+        server_awake = True
     content = request.get_json()
     if content is None:
         return Response(status=409)
@@ -155,14 +159,12 @@ def launch_inst():
     container_process = Process(target=start_container, args=(instance_base_image_dir, config_information))
     container_dict[instance_name] = container_process
     container_process.start()
-    # Set group id
     os.setpgid(container_process.pid, container_process.pid)
 
     for config_file in config_infor_dict.keys():
         if config_file == config_file_name:
             # Code for launching instance of a specific container given
             # config_name, major_version and minor_version to be written here
-
             instance_name = "instance_" + config_name
             output_dict = {}
 
@@ -178,7 +180,7 @@ def launch_inst():
                 instances_list_dict['instances'] = inst_list
             response = jsonify(output_dict)
             response.status_code = 200
-            time.sleep(10)
+            time.sleep(3)
             return response 
     return Response(status=404)
 
@@ -226,7 +228,6 @@ def destroy_container(one_instance):
 
 @manager_server.route('/destroy/<path:text>', methods=['DELETE'])
 def del_inst(text):
-    # pdb.set_trace()
     deleted = False
     if text is None:
         return Response(status=409)
@@ -244,8 +245,11 @@ def del_inst(text):
 def delete_all_dangling_proc():
     for proc in psutil.process_iter():
         if proc.name() == PROCNAME:
-            process_id = proc.pid
-            os.system('sudo kill -9 {}'.format(process_id))
+            try:
+                process_id = proc.pid
+                os.system('sudo kill -9 {}'.format(process_id))
+            except psutil.NoSuchProcess as e:
+                continue
 
 
 @manager_server.route('/destroyall', methods=['DELETE'])
