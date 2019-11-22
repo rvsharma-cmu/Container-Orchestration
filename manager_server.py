@@ -99,12 +99,13 @@ def get_config_info():
 
 
 def do_mount(baseimg_dir, mount_point):
-    filename = mount_point.split(" ")[0]
+    mt_point_args = mount_point.split(" ")
+    filename = mt_point_args[0]
     file_folder = filename.split(".")[0]
-    folder = mount_point.split(" ")[1]
+    folder = mt_point_args[1]
     if folder[0] == '/':
         folder = folder[1:]
-    permission = mount_point.split(" ")[2]
+    permission = mt_point_args[2]
     mount_dir = ospath.join(proj_work_dir, "mountables")
     filepath = ospath.join(mount_dir, filename)
     file_folder = ospath.join(mount_dir, file_folder)
