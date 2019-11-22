@@ -81,7 +81,6 @@ class LaunchTests(unittest.TestCase):
         response = requests.delete(url_destroy)
         self.assertEqual(response.status_code, 404)
         self.assertFalse(response.content)
-        pdb.set_trace()
         # test single destroy - first
         url_destroy =  MySupport.url(self.HOSTNAME, self.PORT, "/destroy/" + first_data["instance"])
         response = requests.delete(url_destroy)
@@ -94,7 +93,6 @@ class LaunchTests(unittest.TestCase):
         self.assertIsNotNone(response.content)
         json = response.json()
         self.assertEqual(json, expected)
-        pdb.set_trace()
         # test destroy all
         url_destroy =  MySupport.url(self.HOSTNAME, self.PORT, "/destroyall")
         response = requests.delete(url_destroy)

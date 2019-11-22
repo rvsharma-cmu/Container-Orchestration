@@ -151,7 +151,6 @@ def launch_inst():
     
     for each_mount_point in config_information['mounts']:
         do_mount(instance_base_image_dir, each_mount_point)
-    pdb.set_trace()
     os.system('sudo mount -t proc proc {}'.format(ospath.join(instance_base_image_dir, 'proc')))
     container_process = Process(target=start_container, args=(instance_base_image_dir, config_information))
     container_dict[instance_name] = container_process
@@ -256,7 +255,6 @@ def del_all_inst():
     for each_inst in temp_instances_list_dict:
         destroy_container(each_inst)
     delete_all_dangling_proc()
-    pdb.set_trace()
     return Response(status=200)
 
 

@@ -23,7 +23,7 @@ def run_full(hostname, port):
     results.append(runner.run(ConfigTests.suite()))
     results.append(runner.run(LaunchTests.suite()))
     results.append(runner.run(ContainerTests.suite()))
-    # results.append(runner.run(CGITests.suite()))
+    results.append(runner.run(CGITests.suite()))
 
     for result in results:
         print(result)
