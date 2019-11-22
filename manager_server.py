@@ -58,6 +58,7 @@ instances_list_dict = {}
 
 @manager_server.route('/config', methods=['POST'])
 def create_config():
+    global server_awake
     if not server_awake:
         time.sleep(3)
         server_awake = True

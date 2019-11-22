@@ -5,8 +5,9 @@ download:
 install:
 	# Put any compilation instructions here if required
 	# Any third party installations shuld also occur here
-	sudo apt get pip3
-	source venv/bin/activate
+	sudo apt-get install python3-pip
+	chmod 777 venv/bin/activate
+	. venv/bin/activate
 	pip3 install flask
 	pip3 install psutil
 
@@ -19,8 +20,11 @@ clean:
 	rm -rf *.cfg
 	rm -rf *.html
 	rm -rf *.html.*
-	rm -rf manager_server_log.txt
+	rm -rf mountables/cabbage
+	rm -rf mountables/potato
+	rm -rf mountables/tomato
 	./kill_manager.sh
+	rm -rf manager_server_log.txt
 
 
 cli_tests: manager
@@ -30,13 +34,16 @@ cli_tests: manager
 	./grading/cli_tests/test_3_launch.sh
 	./grading/cli_tests/test_4_list.sh
 	./grading/cli_tests/test_5_destroyall.sh
+	rm -rf *.cfg
+	rm -rf *.html
+	rm -rf *.html.*
 	./kill_manager.sh
 
 api_tests: manager
 	sleep 1
 	python3 grading/rest/grading.py
-	clean
-	./kill_manager.sh
+	./cli/destroyall
+	sudo make clean
 
 	
 	
