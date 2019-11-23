@@ -1,0 +1,65 @@
+wget https://github.com/ericchiang/containers-from-scratch/releases/download/v0.1.0/rootfs.tar.gz
+sha256sum rootfs.tar.gz 
+sudo tar -zxf rootfs.tar.gz 
+ls rootfs
+ls -al rootfs/bin/ls
+sudo chroot rootfs /bin/bash
+ls /
+which python
+/usr/bin/python -c 'print "Hello, container world!"'
+sudo chroot rootfs /bin/bash -c 'PYTHONHASHSEED=0 python -m http.server 8080'
+top
+sudo chroot rootfs /bin/bash
+mount -t proc proc /proc
+ps aux | grep top
+pkill top
+sudo unshare -p -f --mount-proc=$PWD/rootfs/proc chroot rootfs /bin/bash
+ps aux
+ps aux | grep /bin/bash | grep root
+sudo ls -l /proc/29840/ns
+sudo ls -l /proc/2168/ns
+sudo nsenter --pid=/proc/2168/ns/pid unshare -f --mount-proc=$PWD/rootfs/proc chroot rootfs /bin/bash
+ps uax
+ps aux
+sudo mkdir readonlyfiles
+echo "hello" > readonlyfiles/hi.txt
+rm - rf readonlyfiles/
+mkdir readonlyfiles
+echo "hello" > readonlyfiles/hi.txt
+sudo mkdir -p rootfs/var/readonlyfiles
+sudo mount --bind -o ro $PWD/readonlyfiles $PWD/rootfs/var/readonlyfiles
+sufo chroot rootfs /bin/bash
+sudo chroot rootfs /bin/bash
+cat /var/readonlyfiles/hi.txt
+echo "bye" > /var/readonlyfiles/hi.txt
+sudo $PWD/rrotfs/var/readonlyfiles
+sudo $PWD/rootfs/var/readonlyfiles
+sudo umount $PWD/rootfs/var/readonlyfiles
+ls /sys/fs/cgroup/
+sudo su
+mkdir /sys/fs/cgroup/memory/demo
+ls /sys/fs/cgroup/memory/demo/
+echo "100000000" > /sys/fs/cgroup/memory/demo/memory.limit_in_bytes
+echo "0" > /sys/fs/cgroup/memory/demo/memory.swappiness
+echo $$ > /sys/fs/cgroup/memory/demo/tasks
+vim hungry.py
+python hungry.py
+exit
+sudo rmdir /sys/fs/cgroup/memory/demo/
+vim listen.go
+go build -o listen listen.go 
+sudo apt install golang-go
+go build -o listen listen.go 
+./listen 
+sudo setcap cap_net_bind_service=+ep listen
+getcap listen
+./listen
+sudo su
+capsh --print
+sudo capsh --drop=cap_chown,cap_setpcap,cap_setfcap,cap_sys_admin --chroot=$PWD/rootfs --
+whoami
+chown nobody /bin/ls
+
+
+
+

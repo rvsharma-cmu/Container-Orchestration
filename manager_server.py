@@ -229,7 +229,8 @@ def destroy_container(one_instance):
     for mount_config in config_information['mounts']:
         mount_paths.append(mount_config.split(" ")[1])
     # umount in reverse order of mounting 
-    (mount_paths.sort()).reverse()
+    mount_paths.sort()
+    mount_paths.reverse()
     for mount_path in mount_paths:
         mount_path = truncate_path_name(mount_path)
         mount_path = ospath.join(image_dir, mount_path)
